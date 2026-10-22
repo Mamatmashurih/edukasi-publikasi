@@ -32,7 +32,7 @@ Alamat webhook: `https://edukasipublikasi.web.id/wa-bot/webhook.php`
 1. Meta → aplikasi Anda → **WhatsApp → Configuration → Webhook → Edit**.
 2. Callback URL: `https://edukasipublikasi.web.id/wa-bot/webhook.php`
 3. Verify token: sama persis dengan `verify_token` di config → **Verify and save**.
-4. Di **Webhook fields**, klik **Subscribe** pada `messages`.
+4. Di **Webhook fields**, klik **Subscribe** pada `messages` dan (jika nomor memakai coexistence) `smb_message_echoes` — agar bot diam otomatis selama `pause_hours` saat Anda membalas manual dari aplikasi WhatsApp Business.
 
 ## 5. Uji coba
 Kirim chat ke nomor bisnis dari HP lain, misalnya "Halo, berapa harga skrining artikel?". Bot harus membalas dalam beberapa detik.

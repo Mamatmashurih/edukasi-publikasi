@@ -19,6 +19,10 @@ return [
     'verify_token'    => 'ISI_KATA_BEBAS_MISAL_edupub-2026',
     'graph_version'   => 'v21.0',
 
+    // Jika admin membalas manual dari aplikasi WhatsApp Business (coexistence),
+    // bot diam di chat itu selama sekian jam
+    'pause_hours'     => 6,
+
     'admin_email'     => 'wawansetiawardani15@gmail.com',
     'form_url'        => 'https://docs.google.com/forms/d/e/1FAIpQLScr9OKYKTr4y9DCfoQPz7FR_USEyD9N__sH3Wl3yxOfRXIrFg/viewform',
 ];

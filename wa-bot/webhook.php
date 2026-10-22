@@ -51,9 +51,26 @@ if (function_exists('fastcgi_finish_request')) {
 
 $payload = json_decode($raw, true);
 $value = $payload['entry'][0]['changes'][0]['value'] ?? [];
+
+// Admin membalas manual dari aplikasi WhatsApp Business (coexistence):
+// catat balasannya ke riwayat dan bekukan bot di chat itu
+foreach ($value['message_echoes'] ?? [] as $echo) {
+    $to = preg_replace('/\D/', '', (string)($echo['to'] ?? ''));
+    if ($to === '') {
+        continue;
+    }
+    $pauseUntil = time() + (int)($cfg['pause_hours'] ?? 6) * 3600;
+    file_put_contents("$dataDir/pause-$to.txt", (string)$pauseUntil, LOCK_EX);
+    if (($echo['type'] ?? '') === 'text') {
+        $h = loadHistory($dataDir, $to);
+        $h[] = ['role' => 'model', 'text' => (string)$echo['text']['body'], 't' => time()];
+        saveHistory($dataDir, $to, $h);
+    }
+}
+
 $msg = $value['messages'][0] ?? null;
 if (!$msg) {
-    exit; // status pesan (terkirim/dibaca), bukan pesan baru
+    exit; // status pesan (terkirim/dibaca) atau echo admin, bukan pesan baru
 }
 
 $from = preg_replace('/\D/', '', (string)$msg['from']);
@@ -69,6 +86,17 @@ if (in_array($msgId, $seen, true)) {
 $seen[] = $msgId;
 file_put_contents($seenFile, implode("\n", array_slice($seen, -500)), LOCK_EX);
 
+// Selama admin sedang menangani chat ini, bot hanya mencatat tanpa membalas
+$pauseFile = "$dataDir/pause-$from.txt";
+if (is_file($pauseFile) && (int)file_get_contents($pauseFile) > time()) {
+    if (($msg['type'] ?? '') === 'text') {
+        $h = loadHistory($dataDir, $from);
+        $h[] = ['role' => 'user', 'text' => trim((string)$msg['text']['body']), 't' => time()];
+        saveHistory($dataDir, $from, $h);
+    }
+    exit;
+}
+
 markRead($cfg, $msgId);
 
 if (($msg['type'] ?? '') !== 'text') {
@@ -78,13 +106,8 @@ if (($msg['type'] ?? '') !== 'text') {
 }
 $text = trim((string)$msg['text']['body']);
 
-// Riwayat percakapan per nomor (disimpan di luar public_html)
-$histFile = "$dataDir/chat-$from.json";
-$history = is_file($histFile) ? (json_decode((string)file_get_contents($histFile), true) ?: []) : [];
+$history = loadHistory($dataDir, $from);
 $history[] = ['role' => 'user', 'text' => $text, 't' => time()];
-// Lupakan percakapan yang sudah lebih dari 3 hari
-$history = array_values(array_filter($history, fn($h) => $h['t'] > time() - 3 * 86400));
-$history = array_slice($history, -16);
 
 $reply = askGemini($cfg, $history, $name);
 if ($reply === null) {
@@ -100,7 +123,7 @@ $reply = trim(str_replace('[ADMIN]', '', $reply));
 sendText($cfg, $from, $reply);
 
 $history[] = ['role' => 'model', 'text' => $reply, 't' => time()];
-file_put_contents($histFile, json_encode($history, JSON_UNESCAPED_UNICODE), LOCK_EX);
+saveHistory($dataDir, $from, $history);
 
 if ($needsAdmin && !empty($cfg['admin_email'])) {
     $lines = array_map(fn($h) => ($h['role'] === 'user' ? 'Klien' : 'Bot') . ': ' . $h['text'], $history);
@@ -114,16 +137,40 @@ if ($needsAdmin && !empty($cfg['admin_email'])) {
 
 // ---------- Fungsi ----------
 
+// Riwayat percakapan per nomor (disimpan di luar public_html)
+function loadHistory(string $dataDir, string $num): array
+{
+    $file = "$dataDir/chat-$num.json";
+    $h = is_file($file) ? (json_decode((string)file_get_contents($file), true) ?: []) : [];
+    // Lupakan percakapan yang sudah lebih dari 3 hari
+    return array_values(array_filter($h, fn($x) => $x['t'] > time() - 3 * 86400));
+}
+
+function saveHistory(string $dataDir, string $num, array $h): void
+{
+    file_put_contents("$dataDir/chat-$num.json", json_encode(array_slice($h, -16), JSON_UNESCAPED_UNICODE), LOCK_EX);
+}
+
 function askGemini(array $cfg, array $history, string $name): ?string
 {
     $system = (string)file_get_contents(__DIR__ . '/knowledge.md');
     if ($name !== '') {
         $system .= "\n\nNama profil WhatsApp klien: $name";
     }
-    $contents = array_map(fn($h) => [
-        'role' => $h['role'],
-        'parts' => [['text' => $h['text']]],
-    ], $history);
+    // Gemini butuh percakapan yang diawali klien dan bergantian peran,
+    // jadi pesan beruntun dari pihak yang sama digabung
+    $contents = [];
+    foreach ($history as $h) {
+        if ($contents === [] && $h['role'] !== 'user') {
+            continue;
+        }
+        $last = count($contents) - 1;
+        if ($last >= 0 && $contents[$last]['role'] === $h['role']) {
+            $contents[$last]['parts'][0]['text'] .= "\n" . $h['text'];
+        } else {
+            $contents[] = ['role' => $h['role'], 'parts' => [['text' => $h['text']]]];
+        }
+    }
 
     $res = httpJson(
         'https://generativelanguage.googleapis.com/v1beta/models/' . $cfg['gemini_model'] . ':generateContent',

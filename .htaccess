@@ -1,0 +1,9 @@
+# Sembunyikan folder setup Google Form dari publik
+RedirectMatch 404 ^/_google-form(/.*)?$
+RedirectMatch 404 ^/\.git(/.*)?$
+RedirectMatch 404 ^/README\.md$
+
+# Paksa HTTPS
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]

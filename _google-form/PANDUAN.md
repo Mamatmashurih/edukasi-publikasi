@@ -37,3 +37,37 @@ Batas kirim email gratis Gmail: ±100 email/hari (cukup untuk ±50 kiriman/hari)
 ## Catatan
 - Pengirim **wajib login akun Google** untuk bisa upload file (aturan Google Form).
 - Uji coba: isi formulir sekali sendiri, pastikan dua email masuk.
+
+---
+
+# Formulir Testimoni Klien
+
+## 1. Buat formulir
+1. Buka project Apps Script yang sama → tempel ulang isi `Code.gs` terbaru → **Simpan**.
+2. Pilih fungsi **`setupTestimoni`** → **Jalankan** → izinkan akses.
+3. Di **Log eksekusi** salin *Tautan publik*.
+4. Isi tautan itu di `assets/script.js`:
+   ```js
+   const TESTIMONI_FORM_URL = "https://docs.google.com/forms/d/e/XXXX/viewform";
+   ```
+   Tombol "Beri Testimoni" otomatis muncul di footer website.
+5. Kirim tautan formulir ke klien yang sudah selesai didampingi.
+
+Setiap testimoni masuk ke spreadsheet "Data Testimoni" dan email admin. Subjek email menyebut apakah klien **BOLEH** atau **TIDAK** mengizinkan ditampilkan.
+
+## 2. Tampilkan di website
+Hanya testimoni klien nyata yang mencentang persetujuan. Edit `assets/testimoni.json` di GitHub:
+```json
+[
+  {
+    "nama": "R. A.",
+    "keterangan": "Dosen PGSD, Universitas X",
+    "layanan": "Jurnal Nasional (SINTA)",
+    "kutipan": "Tulis persis seperti yang dikirim klien (boleh dipersingkat, jangan diubah maknanya).",
+    "tautan": "https://doi.org/..."
+  }
+]
+```
+- `nama` mengikuti pilihan klien (nama lengkap / inisial / "Anonim").
+- `tautan` opsional; isi hanya jika klien mengizinkan.
+- Selama file berisi `[]`, bagian Testimoni di beranda tidak tampil.

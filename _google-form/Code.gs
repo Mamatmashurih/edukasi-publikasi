@@ -120,3 +120,88 @@ function escapeHtml(s) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
   );
 }
+
+/* =====================================================================
+ * FORMULIR TESTIMONI KLIEN
+ * Jalankan setupTestimoni() sekali. Testimoni masuk ke spreadsheet dan
+ * dikirim ke email admin. Yang tampil di website hanya yang Anda salin
+ * sendiri ke assets/testimoni.json, dan hanya jika klien menyetujui.
+ * ===================================================================== */
+
+function setupTestimoni() {
+  const form = FormApp.create("Testimoni Klien — " + BRAND);
+  form.setDescription(
+    "Terima kasih telah mempercayakan naskah Anda kepada " + BRAND + ". " +
+    "Ceritakan pengalaman Anda; testimoni hanya ditampilkan di website jika Anda menyetujuinya."
+  );
+  form.setCollectEmail(true);
+  form.setConfirmationMessage("Terima kasih atas testimoni Anda! 🙏");
+
+  form.addTextItem().setTitle("Nama lengkap").setRequired(true);
+  form.addMultipleChoiceItem()
+    .setTitle("Nama yang ditampilkan di website")
+    .setChoiceValues(["Nama lengkap", "Inisial saja (mis. R. A.)", "Anonim"])
+    .setRequired(true);
+  form.addTextItem()
+    .setTitle("Jenjang / profesi dan instansi")
+    .setHelpText("Contoh: Dosen PGSD, Universitas X — atau — Mahasiswa S2 Pendidikan")
+    .setRequired(true);
+  form.addListItem()
+    .setTitle("Layanan yang Anda gunakan")
+    .setChoiceValues([
+      "Publikasi Jurnal Internasional (Scopus/WoS)",
+      "Publikasi Jurnal Nasional (SINTA)",
+      "Proofreading / Translasi",
+      "Cek Turnitin",
+      "Pendampingan Skripsi hingga Terbit",
+      "Penerbitan Buku",
+      "Konsultasi & Skrining Awal",
+    ])
+    .setRequired(true);
+  form.addParagraphTextItem()
+    .setTitle("Testimoni Anda")
+    .setHelpText("Bagaimana pengalaman didampingi kami? Apa yang paling membantu?")
+    .setRequired(true);
+  form.addTextItem()
+    .setTitle("Tautan karya yang terbit (opsional)")
+    .setHelpText("DOI / tautan artikel atau buku, jika boleh ditampilkan");
+  form.addCheckboxItem()
+    .setTitle("Persetujuan publikasi")
+    .setChoiceValues([
+      "Saya mengizinkan " + BRAND + " menampilkan testimoni ini (dengan nama sesuai pilihan saya) di website dan media sosial.",
+    ]);
+
+  const ss = SpreadsheetApp.create("Data Testimoni — " + BRAND);
+  form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
+
+  ScriptApp.getProjectTriggers()
+    .filter((t) => t.getHandlerFunction() === "onTestimoniSubmit")
+    .forEach((t) => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger("onTestimoniSubmit").forForm(form).onFormSubmit().create();
+
+  Logger.log("Edit formulir : " + form.getEditUrl());
+  Logger.log("Tautan publik : " + form.getPublishedUrl());
+  Logger.log("Spreadsheet   : " + ss.getUrl());
+}
+
+function onTestimoniSubmit(e) {
+  const admin = ADMIN_EMAIL || Session.getEffectiveUser().getEmail();
+  const r = {};
+  e.response.getItemResponses().forEach((ir) => {
+    const v = ir.getResponse();
+    r[ir.getItem().getTitle()] = Array.isArray(v) ? v.join(", ") : String(v);
+  });
+  const izin = Boolean(r["Persetujuan publikasi"]);
+  const rows = Object.keys(r).map((k) =>
+    "<tr><td style='padding:6px 12px;color:#5d6779'>" + escapeHtml(k) +
+    "</td><td style='padding:6px 12px'>" + escapeHtml(r[k]) + "</td></tr>"
+  ).join("");
+  MailApp.sendEmail({
+    to: admin,
+    replyTo: e.response.getRespondentEmail(),
+    subject: "[Testimoni Baru] " + (r["Nama lengkap"] || "") + (izin ? " — BOLEH ditampilkan" : " — TIDAK untuk publik"),
+    htmlBody: "<p>Ada testimoni baru" + (izin ? "" : " (klien <b>tidak</b> memberi izin publikasi)") + ":</p>" +
+      "<table style='border-collapse:collapse;font-family:sans-serif;font-size:14px'>" + rows + "</table>" +
+      (izin ? "<p>Untuk menampilkannya, tambahkan ke <code>assets/testimoni.json</code> di GitHub (lihat PANDUAN.md).</p>" : ""),
+  });
+}

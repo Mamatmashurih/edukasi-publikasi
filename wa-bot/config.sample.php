@@ -20,8 +20,11 @@ return [
     'graph_version'   => 'v25.0',
 
     // Jika admin membalas manual dari aplikasi WhatsApp Business (coexistence),
-    // bot diam di chat itu selama sekian jam
-    'pause_hours'     => 6,
+    // bot berhenti membalas di chat itu dan hanya mengirim email "chat baru" ke admin.
+    // 0 = permanen; isi angka (mis. 24) jika ingin bot aktif lagi setelah sekian jam.
+    'pause_hours'     => 0,
+    // Jarak minimal email notifikasi untuk nomor yang sama (menit)
+    'notify_interval_min' => 10,
 
     'admin_email'     => 'wawansetiawardani15@gmail.com',
     'form_url'        => 'https://docs.google.com/forms/d/e/1FAIpQLScr9OKYKTr4y9DCfoQPz7FR_USEyD9N__sH3Wl3yxOfRXIrFg/viewform',

@@ -32,7 +32,13 @@ Alamat webhook: `https://edukasipublikasi.web.id/wa-bot/webhook.php`
 1. Meta → aplikasi Anda → **WhatsApp → Configuration → Webhook → Edit**.
 2. Callback URL: `https://edukasipublikasi.web.id/wa-bot/webhook.php`
 3. Verify token: sama persis dengan `verify_token` di config → **Verify and save**.
-4. Di **Webhook fields**, klik **Subscribe** pada `messages` dan (jika nomor memakai coexistence) `smb_message_echoes` — agar bot diam otomatis selama `pause_hours` saat Anda membalas manual dari aplikasi WhatsApp Business.
+4. Di **Webhook fields**, klik **Subscribe** pada `messages` dan `smb_message_echoes` (wajib agar bot tahu chat mana yang sudah Anda balas manual).
+
+## Chat yang sudah dibalas manual
+- Begitu Anda membalas sebuah chat dari aplikasi WhatsApp Business, bot **berhenti membalas di chat itu secara permanen** (`pause_hours => 0`).
+- Pesan baru dari klien itu tetap **belum dibaca** di aplikasi, dan Anda menerima email **"[WA] Chat baru dari …"** berisi cuplikan pesan + tautan wa.me (maks. 1 email per nomor tiap `notify_interval_min` menit).
+- Ingin bot aktif lagi di chat tertentu? Hapus file `wa-bot-data/pause-628xxxx.txt` untuk nomor itu di File Manager.
+- Agar email cepat terlihat di HP, aktifkan notifikasi aplikasi Gmail untuk email dari server ini (atau buat filter Gmail "[WA] Chat baru" → tandai penting).
 
 ## 5. Uji coba
 Kirim chat ke nomor bisnis dari HP lain, misalnya "Halo, berapa harga skrining artikel?". Bot harus membalas dalam beberapa detik.

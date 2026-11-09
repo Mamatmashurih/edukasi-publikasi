@@ -53,13 +53,15 @@ $payload = json_decode($raw, true);
 $value = $payload['entry'][0]['changes'][0]['value'] ?? [];
 
 // Admin membalas manual dari aplikasi WhatsApp Business (coexistence):
-// catat balasannya ke riwayat dan bekukan bot di chat itu
+// catat balasannya ke riwayat dan hentikan bot di chat itu.
+// pause_hours = 0 berarti permanen (bot tidak membalas lagi di chat itu).
 foreach ($value['message_echoes'] ?? [] as $echo) {
     $to = preg_replace('/\D/', '', (string)($echo['to'] ?? ''));
     if ($to === '') {
         continue;
     }
-    $pauseUntil = time() + (int)($cfg['pause_hours'] ?? 6) * 3600;
+    $hours = (int)($cfg['pause_hours'] ?? 0);
+    $pauseUntil = $hours > 0 ? time() + $hours * 3600 : PHP_INT_MAX;
     file_put_contents("$dataDir/pause-$to.txt", (string)$pauseUntil, LOCK_EX);
     if (($echo['type'] ?? '') === 'text') {
         $h = loadHistory($dataDir, $to);
@@ -86,14 +88,18 @@ if (in_array($msgId, $seen, true)) {
 $seen[] = $msgId;
 file_put_contents($seenFile, implode("\n", array_slice($seen, -500)), LOCK_EX);
 
-// Selama admin sedang menangani chat ini, bot hanya mencatat tanpa membalas
+// Chat yang sudah dibalas manual oleh admin: bot TIDAK membalas dan tidak
+// menandai dibaca (tetap "belum dibaca" di aplikasi), cukup kirim notifikasi email
 $pauseFile = "$dataDir/pause-$from.txt";
 if (is_file($pauseFile) && (int)file_get_contents($pauseFile) > time()) {
-    if (($msg['type'] ?? '') === 'text') {
+    $type = (string)($msg['type'] ?? '');
+    $preview = $type === 'text' ? trim((string)$msg['text']['body']) : "[$type]";
+    if ($type === 'text') {
         $h = loadHistory($dataDir, $from);
-        $h[] = ['role' => 'user', 'text' => trim((string)$msg['text']['body']), 't' => time()];
+        $h[] = ['role' => 'user', 'text' => $preview, 't' => time()];
         saveHistory($dataDir, $from, $h);
     }
+    notifyNewChat($cfg, $dataDir, $from, $name, $preview);
     exit;
 }
 
@@ -136,6 +142,31 @@ if ($needsAdmin && !empty($cfg['admin_email'])) {
 }
 
 // ---------- Fungsi ----------
+
+// Email "ada chat baru" ke admin. Agar inbox tidak banjir saat klien mengirim
+// banyak pesan beruntun, per nomor maksimal satu email tiap notify_interval_min menit.
+function notifyNewChat(array $cfg, string $dataDir, string $from, string $name, string $preview): void
+{
+    if (empty($cfg['admin_email'])) {
+        return;
+    }
+    $file = "$dataDir/notified-$from.txt";
+    $interval = (int)($cfg['notify_interval_min'] ?? 10) * 60;
+    if (is_file($file) && (int)file_get_contents($file) > time() - $interval) {
+        return;
+    }
+    file_put_contents($file, (string)time(), LOCK_EX);
+    $who = trim("$name (+$from)");
+    @mail(
+        $cfg['admin_email'],
+        "=?UTF-8?B?" . base64_encode("[WA] Chat baru dari $who") . "?=",
+        "Ada pesan baru di chat yang sedang Anda tangani manual (bot tidak membalas).\n\n"
+            . "Dari  : $who\n"
+            . "Pesan : " . mb_substr($preview, 0, 500) . "\n\n"
+            . "Balas di aplikasi WhatsApp Business atau: https://wa.me/$from",
+        "Content-Type: text/plain; charset=UTF-8"
+    );
+}
 
 // Riwayat percakapan per nomor (disimpan di luar public_html)
 function loadHistory(string $dataDir, string $num): array

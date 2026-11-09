@@ -17,7 +17,7 @@ return [
     'app_secret'      => 'ISI_APP_SECRET',
     // Kata sandi bebas buatan Anda sendiri, diisi sama persis di menu Webhook Meta
     'verify_token'    => 'ISI_KATA_BEBAS_MISAL_edupub-2026',
-    'graph_version'   => 'v21.0',
+    'graph_version'   => 'v25.0',
 
     // Jika admin membalas manual dari aplikasi WhatsApp Business (coexistence),
     // bot diam di chat itu selama sekian jam

@@ -5,6 +5,9 @@ const WA_NUMBER = "628131023310";
 // "https://docs.google.com/forms/d/e/XXXXXXXX/viewform"
 const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScr9OKYKTr4y9DCfoQPz7FR_USEyD9N__sH3Wl3yxOfRXIrFg/viewform";
 
+// Tautan Google Form "Testimoni Klien" (kosongkan jika belum ada)
+const TESTIMONI_FORM_URL = "";
+
 // Script ini dipakai di semua halaman, jadi setiap elemen dicek dulu keberadaannya
 const $ = (id) => document.getElementById(id);
 
@@ -43,6 +46,62 @@ if (waForm) {
       `Layanan: ${d.get("layanan")}\n` +
       `Pesan: ${d.get("pesan") || "-"}`;
     window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(text)}`, "_blank");
+  });
+}
+
+// Testimoni: hanya klien nyata yang sudah memberi izin, diisi di assets/testimoni.json
+const testiList = $("testi-list");
+if (testiList) {
+  fetch("assets/testimoni.json?v=" + Date.now())
+    .then((r) => (r.ok ? r.json() : []))
+    .then((items) => {
+      if (!Array.isArray(items) || !items.length) return;
+      items.forEach((t) => {
+        const card = document.createElement("figure");
+        card.className = "card testi in";
+        const q = document.createElement("blockquote");
+        q.textContent = t.kutipan || "";
+        card.append(q);
+        if (t.layanan) {
+          const tag = document.createElement("span");
+          tag.className = "post-tag";
+          tag.textContent = t.layanan;
+          card.prepend(tag);
+        }
+        if (t.tautan && /^https?:\/\//.test(t.tautan)) {
+          const a = document.createElement("a");
+          a.className = "testi-link";
+          a.href = t.tautan;
+          a.target = "_blank";
+          a.rel = "noopener";
+          a.textContent = "Lihat karya yang terbit →";
+          card.append(a);
+        }
+        const who = document.createElement("figcaption");
+        who.className = "testi-who";
+        const av = document.createElement("span");
+        av.className = "testi-avatar";
+        av.textContent = (t.nama || "?").trim().charAt(0).toUpperCase();
+        const info = document.createElement("div");
+        const nm = document.createElement("strong");
+        nm.textContent = t.nama || "";
+        const ket = document.createElement("span");
+        ket.textContent = t.keterangan || "";
+        info.append(nm, ket);
+        who.append(av, info);
+        card.append(who);
+        testiList.append(card);
+      });
+      $("testimoni").hidden = false;
+    })
+    .catch(() => {});
+}
+if (TESTIMONI_FORM_URL) {
+  [["testi-form-link", "testi-cta"], ["footer-testi", "footer-testi"]].forEach(([link, box]) => {
+    if ($(link)) {
+      $(link).href = TESTIMONI_FORM_URL;
+      $(box).hidden = false;
+    }
   });
 }
 
